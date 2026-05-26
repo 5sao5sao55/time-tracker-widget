@@ -1,0 +1,27 @@
+{
+  "name": "time-tracker-widget",
+  "version": "1.0.0",
+  "description": "Vietnamese time tracking widget for monitoring work tasks with Excel export",
+  "main": "index.html",
+  "scripts": {
+    "start": "open index.html"
+  },
+  "keywords": [
+    "time-tracker",
+    "work-tracking",
+    "productivity",
+    "vietnamese",
+    "excel-export",
+    "task-management"
+  ],
+  "author": "TimeTracker Contributors",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/5sao5sao55/time-tracker-widget.git"
+  },
+  "bugs": {
+    "url": "https://github.com/5sao5sao55/time-tracker-widget/issues"
+  },
+  "homepage": "https://github.com/5sao5sao55/time-tracker-widget#readme"
+}
