@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TimeTracker - Theo dõi công việc</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px;
+        }
+        .widget-container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 420px;
+            overflow: hidden;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 { font-size: 18px; font-weight: 600; margin-bottom: 4px; }
+        .header p { font-size: 12px; opacity: 0.9; }
+        
+        .timer-display {
+            background: #f8fafc;
+            padding: 20px;
+            text-align: center;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .timer {
+            font-size: 48px;
+            font-weight: 700;
+            color: #1e293b;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: 2px;
+        }
+        .timer-status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-top: 8px;
+        }
+        .status-idle { background: #e2e8f0; color: #64748b; }
+        .status-running { background: #dcfce7; color: #166534; }
+        .status-paused { background: #fef3c7; color: #92400e; }
+
+        .form-section {
+            padding: 20px;
+        }
+        .form-group { margin-bottom: 16px; }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .form-group textarea { resize: vertical; min-height: 60px; }
+        
+        .quick-select {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 6px;
+        }
+        .quick-tag {
+            padding: 6px 12px;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 20px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #475569;
+        }
+        .quick-tag:hover, .quick-tag.active {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            padding: 0 20px 20px;
+        }
+        .btn {
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-start {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+        }
+        .btn-start:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4); }
+        .btn-stop {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+            box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+        }
+        .btn-stop:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+        .history-section {
+            max-height: 200px;
+            overflow-y: auto;
+            padding: 0 20px 20px;
+        }
+        .history-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .history-item {
+            background: #f8fafc;
+            border-radius: 10px;
+            padding: 12px;
+            margin-bottom: 8px;
+            border-left: 4px solid #667eea;
+            font-size: 13px;
+        }
+        .history-item .time-range {
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+        .history-item .task-name {
+            color: #475569;
+            margin-bottom: 2px;
+        }
+        .history-item .duration {
+            color: #667eea;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .history-item .delete-btn {
+            float: right;
+            color: #ef4444;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+        }
+
+        .export-bar {
+            padding: 15px 20px;
+            background: #f8fafc;
+            border-top: 1px solid #e2e8f0;
+            display: flex;
+            gap: 10px;
+        }
+        .btn-export {
+            flex: 1;
+            padding: 10px;
+            background: #475569;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-export:hover { background: #334155; }
+        .btn-clear {
+            padding: 10px 16px;
+            background: #fee2e2;
+            color: #dc2626;
+            border: none;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .date-info {
+            text-align: center;
+            padding: 10px;
+            background: #f1f5f9;
+            font-size: 13px;
+            color: #475569;
+            font-weight: 500;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="widget-container">
+        <div class="header">
+            <h1>⏱️ TimeTracker</h1>
+            <p>Theo dõi thời gian công việc</p>
+        </div>
+
+        <div class="date-info" id="currentDate"></div>
+
+        <div class="timer-display">
+            <div class="timer" id="timer">00:00:00</div>
+            <div class="timer-status status-idle" id="timerStatus">Sẵn sàng</div>
+        </div>
+
+        <div class="form-section">
+            <div class="form-group">
+                <label>Hạng mục công việc</label>
+                <select id="category" onchange="updateDetails()">
+                    <option value="">-- Chọn hạng mục --</option>
+                    <option value="Thiết kế TRANH ĐIỆN - KV OUTSIDE">Thiết kế TRANH ĐIỆN - KV OUTSIDE</option>
+                    <option value="Thiết kế KHU DÁN KÍNH BÊN NGOÀI">Thiết kế KHU DÁN KÍNH BÊN NGOÀI</option>
+                    <option value="Thiết kế bộ Zalo của Fruits T&T">Thiết kế bộ Zalo của Fruits T&T</option>
+                    <option value="Sửa KV Buffet Sầu Riêng">Sửa KV Buffet Sầu Riêng</option>
+                    <option value="KV Buffet Sầu Riêng _Chính thức_Ads Facebook">KV Buffet Sầu Riêng _Chính thức_Ads Facebook</option>
+                    <option value="Fill tag Trái cây">Fill tag Trái cây</option>
+                    <option value="Retouch">Retouch ảnh</option>
+                    <option value="Menu Bunny">Menu Bunny</option>
+                    <option value="Buffet sầu riêng Fruits">Buffet sầu riêng Fruits</option>
+                    <option value="Nghỉ phép">Nghỉ phép</option>
+                    <option value="Khác">Khác...</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Chi tiết công việc</label>
+                <textarea id="detail" placeholder="Mô tả chi tiết công việc..."></textarea>
+                <div class="quick-select" id="quickDetails"></div>
+            </div>
+
+            <div class="form-group">
+                <label>Loại công việc</label>
+                <select id="workType">
+                    <option value="Cố định">Cố định</option>
+                    <option value="Phát sinh">Phát sinh</option>
+                    <option value="Hỗ trợ">Hỗ trợ</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Tình trạng</label>
+                <select id="status">
+                    <option value="Hoàn thành">Hoàn thành</option>
+                    <option value="Đang trong kế hoạch">Đang trong kế hoạch</option>
+                    <option value="Chờ duyệt cấp trên">Chờ duyệt cấp trên</option>
+                    <option value="Hủy/Dời">Hủy/Dời</option>
+                    <option value="Trễ hạn">Trễ hạn</option>
+                    <option value="Chờ tt bp liên quan">Chờ tt bp liên quan</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Kết quả công việc (tùy chọn)</label>
+                <input type="text" id="result" placeholder="Ví dụ: 01 post nhóm Zalo...">
+            </div>
+        </div>
+
+        <div class="button-group">
+            <button class="btn btn-start" id="btnStart" onclick="startTimer()">
+                <span>▶</span> Bắt đầu
+            </button>
+            <button class="btn btn-stop" id="btnStop" onclick="stopTimer()" disabled>
+                <span>⏹</span> Kết thúc
+            </button>
+        </div>
+
+        <div class="history-section" id="historySection">
+            <div class="history-title">
+                <span>Lịch sử hôm nay</span>
+                <span id="totalTime" style="color: #667eea;">00:00</span>
+            </div>
+            <div id="historyList"></div>
+        </div>
+
+        <div class="export-bar">
+            <button class="btn-export" onclick="exportToExcel()">
+                📥 Xuất Excel
+            </button>
+            <button class="btn-clear" onclick="clearToday()">
+                🗑️ Xóa
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let startTime = null;
+        let elapsedTime = 0;
+        let timerInterval = null;
+        let isRunning = false;
+        let currentTask = null;
+        let history = JSON.parse(localStorage.getItem('timeTracker_history') || '[]');
+
+        const detailsMap = {
+            'Thiết kế TRANH ĐIỆN - KV OUTSIDE': ['Thiết kế tranh điện', 'Research ý tưởng', 'Chỉnh sửa theo feedback'],
+            'Thiết kế KHU DÁN KÍNH BÊN NGOÀI': ['Research và thiết kế', 'Thiết kế khu dán kính bên ngoài cửa trước, cửa sau'],
+            'Thiết kế bộ Zalo của Fruits T&T': ['Thiết kế Zalo Tích điểm', 'Đổi Điểm', 'Voucher Mua Sắm', 'Voucher Sinh nhật', 'Sửa theo feedback'],
+            'Sửa KV Buffet Sầu Riêng': ['Sửa KV Buffet Sầu riêng theo Feedback'],
+            'KV Buffet Sầu Riêng _Chính thức_Ads Facebook': ['Thiết Kế social post Buffet Sầu Riêng'],
+            'Fill tag Trái cây': ['Fill tag Trái cây mới cập nhật'],
+            'Retouch': ['Retouch ảnh Sầu riêng', 'Retouch ảnh sản phẩm'],
+            'Menu Bunny': ['Fill thêm giá mới', 'Thiết kế menu mới'],
+            'Buffet sầu riêng Fruits': ['Media', 'Chụp ảnh', 'Quay video'],
+            'Nghỉ phép': ['Nghỉ phép năm', 'Nghỉ ốm', 'Nghỉ việc riêng']
+        };
+
+        function updateDate() {
+            const now = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+            document.getElementById('currentDate').textContent = now.toLocaleDateString('vi-VN', options);
+        }
+
+        function updateDetails() {
+            const category = document.getElementById('category').value;
+            const container = document.getElementById('quickDetails');
+            container.innerHTML = '';
+            
+            if (detailsMap[category]) {
+                detailsMap[category].forEach(detail => {
+                    const tag = document.createElement('span');
+                    tag.className = 'quick-tag';
+                    tag.textContent = detail;
+                    tag.onclick = () => {
+                        document.getElementById('detail').value = detail;
+                        document.querySelectorAll('.quick-tag').forEach(t => t.classList.remove('active'));
+                        tag.classList.add('active');
+                    };
+                    container.appendChild(tag);
+                });
+            }
+        }
+
+        function formatTime(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            const s = seconds % 60;
+            return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+
+        function formatDecimalTime(seconds) {
+            return (seconds / 3600).toFixed(4);
+        }
+
+        function formatExcelTime(date) {
+            return date.getHours() / 24 + date.getMinutes() / 1440 + date.getSeconds() / 86400;
+        }
+
+        function startTimer() {
+            const category = document.getElementById('category').value;
+            if (!category) {
+                alert('Vui lòng chọn hạng mục công việc!');
+                return;
+            }
+
+            startTime = new Date();
+            isRunning = true;
+            currentTask = {
+                category: category,
+                detail: document.getElementById('detail').value || category,
+                workType: document.getElementById('workType').value,
+                status: document.getElementById('status').value,
+                result: document.getElementById('result').value,
+                startTime: startTime,
+                startDecimal: formatExcelTime(startTime)
+            };
+
+            document.getElementById('btnStart').disabled = true;
+            document.getElementById('btnStop').disabled = false;
+            document.getElementById('timerStatus').className = 'timer-status status-running';
+            document.getElementById('timerStatus').textContent = '🔴 Đang chạy...';
+
+            timerInterval = setInterval(() => {
+                elapsedTime = Math.floor((new Date() - startTime) / 1000);
+                document.getElementById('timer').textContent = formatTime(elapsedTime);
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (!isRunning) return;
+            
+            clearInterval(timerInterval);
+            const endTime = new Date();
+            isRunning = false;
+
+            currentTask.endTime = endTime;
+            currentTask.endDecimal = formatExcelTime(endTime);
+            currentTask.duration = elapsedTime;
+            currentTask.durationDecimal = formatDecimalTime(elapsedTime);
+            currentTask.date = new Date();
+
+            history.push(currentTask);
+            saveHistory();
+            renderHistory();
+            resetTimer();
+        }
+
+        function resetTimer() {
+            elapsedTime = 0;
+            document.getElementById('timer').textContent = '00:00:00';
+            document.getElementById('btnStart').disabled = false;
+            document.getElementById('btnStop').disabled = true;
+            document.getElementById('timerStatus').className = 'timer-status status-idle';
+            document.getElementById('timerStatus').textContent = 'Sẵn sàng';
+            document.getElementById('result').value = '';
+        }
+
+        function saveHistory() {
+            localStorage.setItem('timeTracker_history', JSON.stringify(history));
+        }
+
+        function deleteTask(index) {
+            history.splice(index, 1);
+            saveHistory();
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('historyList');
+            const today = new Date().toDateString();
+            const todayTasks = history.filter(t => new Date(t.date).toDateString() === today);
+            
+            list.innerHTML = '';
+            let totalSeconds = 0;
+
+            todayTasks.slice().reverse().forEach((task, idx) => {
+                const realIndex = history.indexOf(task);
+                totalSeconds += task.duration;
+                
+                const item = document.createElement('div');
+                item.className = 'history-item';
+                item.innerHTML = `
+                    <span class="delete-btn" onclick="deleteTask(${realIndex})">×</span>
+                    <div class="time-range">
+                        ${task.startTime.toLocaleTimeString('vi-VN')} - ${task.endTime.toLocaleTimeString('vi-VN')}
+                    </div>
+                    <div class="task-name">${task.category}</div>
+                    <div class="duration">⏱️ ${formatTime(task.duration)} | ${task.workType} | ${task.status}</div>
+                `;
+                list.appendChild(item);
+            });
+
+            document.getElementById('totalTime').textContent = formatTime(totalSeconds);
+        }
+
+        function clearToday() {
+            if (!confirm('Xóa tất cả lịch sử hôm nay?')) return;
+            const today = new Date().toDateString();
+            history = history.filter(t => new Date(t.date).toDateString() !== today);
+            saveHistory();
+            renderHistory();
+        }
+
+        function exportToExcel() {
+            const today = new Date().toDateString();
+            const todayTasks = history.filter(t => new Date(t.date).toDateString() === today);
+            
+            if (todayTasks.length === 0) {
+                alert('Không có dữ liệu để xuất!');
+                return;
+            }
+
+            // Sort by start time
+            todayTasks.sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+
+            const wb = XLSX.utils.book_new();
+            
+            // Data sheet matching your template format
+            const data = [
+                ['STT', 'Ngày', 'Bắt đầu', 'Kết thúc', 'Thời gian', 'HẠNG MỤC', 'CHI TIẾT CÔNG VIỆC', 'LOẠI CÔNG VIỆC', 'TÌNH TRẠNG', 'KẾT QUẢ CÔNG VIỆC', 'GHI CHÚ']
+            ];
+
+            let totalDuration = 0;
+            todayTasks.forEach((task, idx) => {
+                totalDuration += task.durationDecimal;
+                data.push([
+                    idx + 1,
+                    new Date(task.date).toLocaleDateString('vi-VN'),
+                    task.startDecimal,
+                    task.endDecimal,
+                    task.durationDecimal,
+                    task.category,
+                    task.detail,
+                    task.workType,
+                    task.status,
+                    task.result,
+                    ''
+                ]);
+            });
+
+            // Add total row
+            data.push(['', '', '', '', totalDuration, 'Thời lượng xử lý công việc', '', '', '', '', '']);
+
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            
+            // Set column widths
+            ws['!cols'] = [
+                {wch: 5}, {wch: 12}, {wch: 12}, {wch: 12}, {wch: 12},
+                {wch: 30}, {wch: 40}, {wch: 15}, {wch: 20}, {wch: 30}, {wch: 20}
+            ];
+
+            XLSX.utils.book_append_sheet(wb, ws, 'Báo cáo ngày');
+
+            // Summary sheet
+            const summaryData = [
+                ['BÁO CÁO & KẾ HOẠCH CÔNG VIỆC'],
+                [''],
+                ['THÁNG ' + (new Date().getMonth() + 1) + ' / ' + new Date().getFullYear()],
+                [''],
+                ['THÔNG TIN NHÂN VIÊN'],
+                ['Họ và Tên:', 'Phan Hồng Vân'],
+                ['Chức vụ:', 'Designer'],
+                ['Phòng/Ban:', 'MKT'],
+                [''],
+                ['TỔNG HỢP'],
+                ['Loại công việc', 'Số lượng', 'Tỷ lệ'],
+                ['Cố định', todayTasks.filter(t => t.workType === 'Cố định').length, ''],
+                ['Phát sinh', todayTasks.filter(t => t.workType === 'Phát sinh').length, ''],
+                ['Hỗ trợ', todayTasks.filter(t => t.workType === 'Hỗ trợ').length, ''],
+                [''],
+                ['Tình trạng'],
+                ['Hoàn Thành', todayTasks.filter(t => t.status === 'Hoàn thành').length, ''],
+                ['Đang trong kế hoạch', todayTasks.filter(t => t.status === 'Đang trong kế hoạch').length, ''],
+                ['Chờ duyệt cấp trên', todayTasks.filter(t => t.status === 'Chờ duyệt cấp trên').length, '']
+            ];
+
+            const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+            XLSX.utils.book_append_sheet(wb, wsSummary, 'Tổng hợp');
+
+            const fileName = `BaoCao_${new Date().toISOString().split('T')[0]}_PhanHongVan.xlsx`;
+            XLSX.writeFile(wb, fileName);
+        }
+
+        // Initialize
+        updateDate();
+        renderHistory();
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && e.target.tagName !== 'TEXTAREA' && e.target.tagName !== 'INPUT') {
+                e.preventDefault();
+                isRunning ? stopTimer() : startTimer();
+            }
+        });
+    </script>
+</body>
+</html>
